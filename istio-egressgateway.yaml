@@ -14,6 +14,25 @@ spec:
     - abr.business.gov.au
     tls:
       mode: PASSTHROUGH
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-abr
+spec:
+  meshConfig:
+    outboundTrafficPolicy:
+      mode: REGISTRY_ONLY
+  location: MESH_EXTERNAL
+  hosts:
+  - abr.business.gov.au
+  ports:
+  - number: 443
+    name: https
+    protocol: TLS
+  resolution: DNS
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -27,10 +46,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: direct-cnn-through-egress-gateway
+  name: direct-abr-through-egress-gateway
 spec:
-  hosts:
-  - abr.business.gov.au
   gateways:
   - mesh
   - istio-egressgateway
