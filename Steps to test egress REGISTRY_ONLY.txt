@@ -1,0 +1,61 @@
+export SOURCE_POD=$(kubectl get pod -l app=sleep -o jsonpath={.items..metadata.name})
+
+#
+kubectl exec -it $SOURCE_POD -c sleep -- sh
+
+-- inside the pod
+
+/ # curl -I -L http://www.ibm.com
+HTTP/1.1 502 Bad Gateway
+date: Fri, 03 Jul 2020 15:22:37 GMT
+server: envoy
+transfer-encoding: chunked
+
+/ # curl -I -L https://www.ibm.com
+curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to www.ibm.com:443 
+/ # 
+/ # curl -I https://abr.business.gov.au
+curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to abr.business.gov.au:443 
+/ # exit
+
+
+
+---
+Create the serviceEntry yaml
+naren@naren-S400CA:~/istio/istio-1.6.3$ cat egress-service.yaml 
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: abr
+spec:
+  hosts:
+  - abr.business.gov.au
+  - www.ibm.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
+
+# Now install the file
+naren@naren-S400CA:~/istio/istio-1.6.3$ kubectl apply -f egress-service.yaml 
+serviceentry.networking.istio.io/abr configured
+
+---
+now connect to the pod again
+naren@naren-S400CA:~/cloud$ kubectl exec -it $SOURCE_POD -c sleep -- sh
+/ # 
+
+ # curl -I https://www.ibm.com
+HTTP/2 303 
+server: AkamaiGHost
+content-length: 0
+location: https://www.ibm.com/us-en/?ar=1
+
+#yipee. it is working. Now check the abr.business.gov.au
+#
+/ # curl -I https://abr.business.gov.au
+HTTP/1.1 404 Not Found
+Content-Length: 0
+# that is working too.. not sure why I get 404.. I guess they are blocking the curl access
